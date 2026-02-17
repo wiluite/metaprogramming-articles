@@ -30,7 +30,7 @@ namespace impl {
         static constexpr bool value = true;
     };
     template <>
-    struct is_empty<const tuple<>> {
+    struct is_empty<tuple<> const> {
         static constexpr bool value = true;
     };
 
@@ -43,7 +43,7 @@ namespace impl {
         using type = Head;
     };
     template <class Head, class... Rest>
-    struct front_t<const tuple<Head, Rest...>> {
+    struct front_t<tuple<Head, Rest...> const> {
         using type = Head;
     };
 
@@ -56,8 +56,8 @@ namespace impl {
         using type = tuple<Rest...>;
     };
     template <class Head, class... Rest>
-    struct pop_front_t<const tuple<Head, Rest...>> {
-        using type = const tuple<Rest...>;
+    struct pop_front_t<tuple<Head, Rest...> const> {
+        using type = tuple<Rest...> const;
     };
 
     // Первичный шаблон и псевдоним алгоритма remove_if_index_sequence_t
@@ -117,7 +117,7 @@ namespace impl {
 namespace fusion {
     template <typename T>
     concept IsTuple = requires(T t) {
-        []<typename... Args>(const std::tuple<Args...>&) {}(t);
+        []<typename... Args>(std::tuple<Args...> const &) {}(t);
     };
     template <class T, class F>
     requires IsTuple<T>
