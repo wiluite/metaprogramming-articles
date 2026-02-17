@@ -1,30 +1,24 @@
-## Маленькие статьи по метапрограммированию  
+#include <forward_list>
+#include <iostream>
+#include <tuple>
+#include <utility> // index_sequence
+#include <type_traits>
+#include <sstream>
+#include <cassert>
 
-### 1. Эмуляция boost::fusion::remove_if и boost::fusion::transform в современном C++.
-Константин Владимиров в 2020 году  
-https://www.youtube.com/watch?v=UJqW_eEBA6I  
-(момент на видео примерно с 1:21:30)  
+using std::size_t;
+using std::conditional_t;
+using std::string;
+using std::enable_if_t;
+using std::tuple;
+using std::index_sequence;
+using std::get;
+using std::make_tuple;
+using std::forward;
+using std::make_index_sequence;
+using std::tuple_size;
+using std::is_same;
 
-привел следующий код: 
-
-
-```cpp
-auto to_string = [] (auto t) { std::stringstream ss; ss << t; return ss.str(); };
-
-fusion::vector<int, std::string, float> seq {1, "abc", 3.4f};
-auto noflts = fusion::remove_if<std::is_floating_point<mpl::_>>(seq);
-auto strs = fusion::transform(noflts, to_string);
-            // -> fusion::vector<string, string>
-```
-прокомментировав, что это был по-сути std::tuple - подобный кортеж за 3 года до стандартизации, который (кортеж) был гораздо круче, чем 
-стандартный кортеж сейчас. И что библиотека Boost.Fusion полна подобных compile-time алгоритмов, а также, что сделать подобное в рамках работы
-со стандартными кортежами довольно сложно.  
-
-Мне лично кажется, что в стандартную библиотеку не нужно загонять подобные вещи, поскольку программист сам может написать для себя необходимое
-подмножество нужных ему в проектах алгоритмов. На стандартных кортежах это не должно вызывать особых трудностей. И вот как это делается (начиная
-с C++14, не считая, правда, того, что в итоговом примере для ограничения типов типами кортежей используются C++20 концепты):
-
-```cpp
 namespace impl {
     // Примитивы для работы алгоритма remove_if_index_sequence_t
     template <class L>
@@ -87,7 +81,6 @@ namespace impl {
               >
           >
     { };
-
     // Базовый случай
     template <template <class...> class Compare, class TTypeList, size_t idx, class Result>
     struct remove_if_index_sequence_t<Compare, TTypeList, idx, Result, true> {
@@ -118,25 +111,14 @@ namespace impl {
         return details::tuple_map(fun, std::forward<TupleT>(tup), index_tuple<TupleT>());
     };
 }
-```
-1. Мы берем список типов нужного кортежа и прогоняем его через предикат (в нашем случае прогоняем через предикат std::is_floating_point), 
-получая список индексов тех типов кортежа, элементы которых должны попадать в новый кортеж: метафункция remove_if_index_sequence_t.
-2. Далее просто используем этот список индексов для отбора нужных значений из исходного кортежа в кортеж noflts (алгоритм select).
-3. А для получения типа с двумя стрингами (tuple < string, string >) используем операцию "MAP" последовательности элементов кортежа на нашу
-лямбду. В нашем случае такая функция называется tuple_map() (и должна содержаться в любой маломальски современной библиотеке для функционального
-программирования на C++), которая, применяя лямбду, автоматически выводит все нужные типы для результирующего кортежа. Это составляет само
-существо операции transform() из исходного примера. 
 
-И на этом всё. Пишем "обертки", воспроизводящие "интерфейс" fusion (как если бы мы работали с настоящими boost::fusion::remove_if и 
-boost::fusion::transform):
-
-```cpp
+// Обертки, воспроизводящие "интерфейс" fusion
+// (как если бы мы работали с настоящими boost::fusion::remove_if и boost::fusion::transform)
 namespace fusion {
     template <typename T>
     concept IsTuple = requires(T t) {
         []<typename... Args>(const std::tuple<Args...>&) {}(t);
     };
-
     template <class T, class F>
     requires IsTuple<T>
     constexpr auto transform(T && t, F f) {
@@ -150,33 +132,22 @@ namespace fusion {
         return select(std::forward<T>(tup), remove_if_index_sequence<Predicate, std::decay_t<decltype(tup)> >{});
     }
 }
-```
-
-Получившийся результат воспроизводит начальный пример: 
-
-```cpp
+// Получившийся результат воспроизводит начальный пример: 
 int main() {
     auto to_string = [] (auto t) { std::stringstream ss; ss << t; return ss.str(); };
 
     auto noflts = fusion::remove_if<std::is_floating_point>(make_tuple(1, "abc", 4.3f));
+    static_assert(is_same<decltype(noflts), tuple<int, char const*> >::value);
+
     auto strs = fusion::transform(noflts, to_string);
+    static_assert(is_same<decltype(strs), tuple<string, string> >::value);
 
     assert(get<0>(strs) == "1");
     assert(get<1>(strs) == "abc");
     std::cout << get<0>(strs) << ' ' << get<1>(strs) << '\n';
-
-    // В compile-time убеждаемся что все выведенные типы - те, что ожидаемы.
-    static_assert(is_same<decltype(noflts), tuple<int, char const*> >::value);
-    static_assert(is_same<decltype(strs), tuple<string, string> >::value);
 }
-```
 
-P.S.  
-Если бы вам по каким-либо причинам захотелось продолжать работать со значениями "1" и "abc" в compile-time, то вам просто пришлось бы придумать
-constexpr-лямбду (CPP17), работающую с std::string_view. Сам же наш функционал является compile-time автоматически, как это и было, вероятно, и
-в boost::fusion. И да - все вышестоящие различные специализации для const-типов сделаны для поддержки этой возможности:
 
-```cpp
 constexpr auto noflts_ct = fusion::remove_if<std::is_floating_point>(make_tuple(1, "abc", 4.3f, 42.0));
 static_assert(is_same<decltype(noflts_ct), tuple<int, char const*> const >::value);
 
@@ -195,4 +166,3 @@ static_assert(strs_ct == make_tuple(string_view("1"), string_view("abc")));
 static_assert(get<0>(strs_ct) == "1");
 static_assert(get<1>(strs_ct) == "abc");
 // 
-```
