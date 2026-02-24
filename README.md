@@ -485,8 +485,14 @@ class offset_based_getter<Struct, std::tuple<Types...>> {
     // Инкапсулирует арифметику смещений и переинтерпретацию типов (reinterpret_cast)
     // Кастует найденное смещение на тип элемента по запрошенному индексу. Находит само смещение - член-функция выше
     template <std::size_t idx>
-        static const index_t<idx> * get_pointer(const Struct * u) noexcept {
+    static const index_t<idx> * get_pointer(const Struct * u) noexcept {
         return reinterpret_cast<const index_t<idx> *>(reinterpret_cast<const char *>(u) + this_t::offset<idx>());
+    }
+
+    // Перегрузка (для неконстантного Struct)
+    template <std::size_t idx>
+    static index_t<idx> * get_pointer(Struct * u) noexcept {
+        return reinterpret_cast<index_t<idx> *>(reinterpret_cast<char *>(u) + this_t::offset<idx>());
     }
 
 public:
@@ -497,6 +503,15 @@ public:
     index_t<idx> const & get(Struct const & u) const noexcept {
         return *this_t::get_pointer<idx>(std::addressof(u));
     }
+
+    // Перегрузка (для неконстантного Struct)
+    template <std::size_t idx>
+    index_t<idx> & get(Struct & u) const noexcept {
+        return *this_t::get_pointer<idx>(std::addressof(u));
+    }
+
+    // нужен, чтобы построить индексную последовательность при необходимости
+    static constexpr std::size_t tuple_size = sizeof...(Types);
 };
 ```
 
@@ -551,3 +566,35 @@ alignas(alignof(TupleElementType)) char storage_[sizeof(TupleElementType)];
 первого члена работает, потому что для самой структуры компилятор ее выравнивает по правильному умолчанию.
 
 После этих изменений класс для извлечения N-го значения из структуры будет полностью рабочим.
+
+Ну а теперь, нужно получить ВСЕ значения из структуры при помощи этого же шаблонного члена get. Это делается буквально несколькими строками:
+
+```cpp
+namespace detail {
+    template <class UserType, class Getter, std::size_t... Indices>
+    auto make_tuple_from_class(UserType & s, Getter & g, std::index_sequence<Indices...>) {
+        return std::tie(g.template get<Indices>(s)...);
+    }
+}
+template <class UserType, class Getter>
+auto make_tuple_from_class(UserType & s, Getter & g) {
+    return detail::make_tuple_from_class(s, g, std::make_index_sequence<Getter::tuple_size>{});
+}
+
+// Вызов:
+auto tup = make_tuple_from_class(s1, getter);
+// Результаты:
+assert(std::get<0>(tup) == 53);
+assert(std::get<1>(tup) == '.');
+assert(std::get<2>(tup) == 42.1f);
+// меняем член структуры через кортеж! (поскольку tup это кортеж неконстантных ссылок: s1 - неконстанта)
+std::get<2>(tup) = 43.0f;
+assert(s1.f == 43.0f);
+```
+AWESOME!
+
+В magic_get версии многолетней давности, которую я изучал, место make_tuple_from_class() занимает множество функций стартущих с
+make_flat_tuple_of_references() и представляющих собой какой-то умопомрачительный код бинарного размежевания до единичного значения, а затем
+сбора (мержа) этих значений в кортеж. Зачем это было сделано - для меня осталось загадкой.
+
+#### 3.2. ........
