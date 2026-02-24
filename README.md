@@ -196,3 +196,184 @@ static_assert(get<0>(strs_ct) == "1");
 static_assert(get<1>(strs_ct) == "abc");
 // 
 ```
+
+### 2. Удобное вычисление евклидова расстояния от векторов любой размерности на стандартных кортежах.
+
+https://youtu.be/jL3CNQr-0Cg  
+(момент на видео с 1:21:00)
+
+Вспоминая доклад Michael Caisse "Решения мировых проблем с Fusion" от 2013 года, Константин Владимиров указал на удобства решения задачи 
+нахождения евклидова расстояния для векторов любой размерности на библиотеке Boost.Fusion. Удобства заключались в "заточенности" кортежей
+(fusion::tuple) библиотеки, еe алгоримов и различных функторов под такую задачу. А также в том, что пользователь мог легко адаптировать свои
+структуры и классы под конкретную задачу при помощи препроцессорных дефиниций всё той же библиотеки...
+Однако, такую задачу даже в 2011-2012 году (не говоря уже о 2013) можно было сравнительно легко решить средствами тогдашней стандартной 
+библиотеки и компилятора С++11. Я покажу по шагам, как выглядит это решение без всякой сторонней магии, используя лишь сам язык и его 
+разнообразные грани, в которых нет и не было ничего лишнего, которые дополняют друг друга самым естественным образом. Ну а само
+метапрограммирование здесь совсем несложно. А главное, чего я не понял, когда посмотрел первую половину доклада, это того, в чем все-таки
+были претензии к кортежам, которые нельзя ни улучшить, ни ухудшить: там нечего придумать. Возможно, докладчик просто не знал, что можно
+пользоваться "вариадиками" и "pack expansion"? Жду критики.
+
+Итак, что мы имеем в ограниченном C++11:
+
+1. При метапрограммировании на стандартных кортежах (std::tuple) нужна std::make_index_sequence. Ее еще нет, она появляется в C++14. Напишем
+сами подобную метафункцию.
+2. У нас нет автоматического вывода типов (auto) для аргументов и возвращаемых значений функций. Для аргументов вывод через auto нам сроду не
+сдался, а для возвращаемых значений мы будем явно определять trailing return type - только и всего.
+3. Нам нужны идеоматические(канонические) операции отображения и свертки (MAP и FOLD) из функционального программирования, которые бы работали
+на значениях стандартных кортежей (проще говоря, на кортежах). Их можно взять из библиотеки Cat (автор Nicola Bonelli) или написать самим.
+4. В качестве предикатов и функторов мы не может использовать ни локальные лямбды, ни локальные классы с шаблонными операторами вызова. Но,
+поскольку мы знаем, что наши значения в векторах всегда double, в этом нет необходимости. Если же нам нужны когда-то и шаблонные варианты 
+оператора вызова, то мы просто вынуждены размещать такие структуры на уровне пространств имен. А как спасает Fusion?
+5. Когда наша структура или класс должны использоваться как векторы для вычисления евклидова расстояния, мы ничего не адаптируем при помощи 
+препроцессора: мы пишем в этой структоре или этом классе член-функцию со строго определенным именем и имплементируем там возвращаемый кортеж, 
+который и будет принимать участие в вычислениях. Если же мы поборники чистоты и не хотим нарушать OCP, то пишем функцию уровня того же или
+охватывающего пространства имен, принимающую аргумент этого класса/структуры, и возващающего кортеж. Далее (для операции MAP, потому что она
+выполяется сначала) пишется набор перегруженных функций, принимающих различные сочетания всех возможных аргументов и работающий через обычный 
+статический полиморфизм, передающий наши созданные кортежи на вычисления.
+
+Вот и все, что нам нужно.
+
+Замена std::make_index_sequence:
+
+```cpp
+template <unsigned...>
+struct ValueList {};
+
+template <unsigned N, class Result = ValueList<>, bool = (N > 0)>
+struct make_index_seq_t;
+
+template <unsigned N, unsigned...Values>
+struct make_index_seq_t<N, ValueList<Values...>, true> : make_index_seq_t<N - 1, ValueList<(N-1) , Values...> > {};
+
+template <class Result>
+struct make_index_seq_t<0, Result, false> {
+    using type = Result;
+};
+template<unsigned N>
+using make_index_seq = typename make_index_seq_t<N>::type;
+```
+
+Далее. Сначала к всем парным элементам двух кортежей применяется операция MAP как функция квадрата разности двух значений. MAP формирует новый
+кортеж из того же количества элементов, являющихся результатом операции всех пар. 
+И вот как она выглядит:
+
+```cpp
+namespace map_n_fold {
+
+    namespace detail {
+        template <class Fun, class T1, class T2, unsigned... Indices>
+        auto tuple_map(Fun fun, T1 tup1, T2 tup2, ValueList<Indices...>) 
+            -> decltype(make_tuple(fun(get<Indices>(tup1), get<Indices>(tup2))...)) {
+            return make_tuple(fun(get<Indices>(tup1), get<Indices>(tup2))...);
+        }
+        ......  
+    }
+    template <class Fun, class ... Cs1, class ... Cs2, typename enable_if<sizeof...(Cs1) == sizeof...(Cs2), void*>::type = nullptr>
+    auto tuple_map(Fun fun, tuple<Cs1...> tup1, tuple<Cs2...> tup2)
+        ->decltype(detail::tuple_map(fun, tup1, tup2, make_index_seq<sizeof...(Cs1)>{})) {
+        return detail::tuple_map(fun, tup1, tup2, make_index_seq<sizeof...(Cs1)>{});
+    }
+    ......
+
+}
+```
+А сам функтор, принимаемый на вход, тривиален:
+
+```cpp
+    struct difference_squared {
+        auto operator()(double num1, double num2) -> double {
+            return pow(num1 - num2, 2);
+        }
+    };
+```
+	
+Операция свертки FOLD, принимающая на вход кортеж после MAP, выглядит следующим образом:
+
+```cpp
+namespace map_n_fold {
+
+    namespace detail {
+        template <typename Fun, typename T, typename TupleT>
+        auto tuple_fold(Fun, T acc, TupleT &&, ValueList<>) -> T {
+            return acc;
+        }
+
+        template <typename Fun, typename T, typename TupleT, unsigned N, unsigned ...Ns>
+        auto tuple_fold(Fun fun, T acc, TupleT &&tup, ValueList<N, Ns...>) -> T {
+            auto acc1 = fun(std::move(acc), get<N>(tup));
+            return tuple_fold(fun, std::move(acc1), std::forward<TupleT>(tup), ValueList<Ns...>{});
+        }
+    }
+
+    template<typename Fun, typename T, typename TupleT>
+    auto tuple_fold(Fun fun, T value, TupleT &&tup) -> decltype(detail::tuple_fold(fun, std::move(value), std::forward<TupleT>(tup), index_tuple<TupleT>{})) {
+        return detail::tuple_fold(fun, std::move(value), std::forward<TupleT>(tup), index_tuple<TupleT>{});
+    }
+
+}
+```
+А функтор для FOLD таков:
+
+```cpp
+    struct sum_of_squared_differences {
+        auto operator()(double sum, double num) -> double {
+            sum += num; return sum;
+        }
+    };
+```
+
+Сама универсальная функция подсчета евклидова расстояния для любой размерности удивительно лаконична (как и все остальное):
+
+```cpp
+template <class T, class U>
+auto euclid(T t, U u) -> double {
+    using namespace map_n_fold;
+    return sqrt(tuple_fold(sum_of_squared_differences(), 0, tuple_map(difference_squared(), t, u)));
+}
+```
+
+Клиенты функции euclid() могут быть написаны весьма разнообразно, и это завершает нашу статью. Заметим, что если as_tuple() не инжектится в
+наш класс, то к сожалению, объявления и класса и as_tuple() должны быть доступны семейству перегруженных функций tuple_map. Но это скромная
+плата за красоту общего решения и ухода от перегруженного Fusion-подхода:
+
+```cpp
+namespace another {
+    struct S4 {
+        double a;
+        double b;
+        double c;
+        double d;
+    };
+}
+auto as_tuple(another::S4 const& arg) -> decltype(make_tuple(arg.a, arg.b, arg.c, arg.d)) { return make_tuple(arg.a, arg.b, arg.c, arg.d); }
+
+int main() {
+
+    using std::tie;
+    using std::cout;
+
+    struct S2 {
+        double a;
+        double b;
+        auto as_tuple() -> decltype(tie(a, b)) { return tie(a, b); }
+    };
+
+    S2 s1 {2.0, 0.0};
+    S2 s2 {4.0, 0.0};
+
+    assert(euclid(s1, s2) == 2);
+    assert(euclid(make_tuple(2.0, 0.0), s2) == 2);
+
+
+    struct S3 {
+        double a;
+        double b;
+        double c;
+        auto as_tuple() -> decltype(make_tuple(a, b, c)) { return make_tuple(a, b, c); }
+    };
+
+    cout << euclid(S3{1.0, 2.0, 3.0}, S3{0.0, 1.0, 2.0}) << '\n';
+
+    assert(euclid(another::S4{1.0, 2.0, 3.0, 4.0}, another::S4{0.0, 1.0, 2.0, 3.0}) == 2);
+}
+```
