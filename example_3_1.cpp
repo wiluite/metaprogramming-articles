@@ -4,6 +4,14 @@
 #include <utility>
 #include <cassert>
 
+using tuple_template = std::tuple<int, char, float>;
+
+struct our_struct {
+    int i = 53;
+    char c = '.';
+    float f = 42.1;
+};
+
 template <typename Struct, typename Tup>
 class offset_based_getter;
 
@@ -71,15 +79,6 @@ public:
 
     // нужен, чтобы построить индексную последовательность при необходимости
     static constexpr std::size_t tuple_size = sizeof...(Types);
-};
-
-
-using tuple_template = std::tuple<int, char, float>;
-
-struct our_struct {
-    int i = 53;
-    char c = '.';
-    float f = 42.1;
 };
 
 namespace detail {

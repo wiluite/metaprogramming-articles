@@ -1,6 +1,7 @@
 ## Маленькие статьи по метапрограммированию  
 
 ### 1. Эмуляция boost::fusion::remove_if и boost::fusion::transform в современном C++.
+
 Константин Владимиров в 2020 году  
 https://www.youtube.com/watch?v=UJqW_eEBA6I  
 (момент на видео примерно с 1:21:30)  
@@ -120,8 +121,8 @@ namespace impl {
 }
 ```
 1. Мы берем список типов нужного кортежа и прогоняем его через предикат (в нашем случае прогоняем через предикат std::is_floating_point), 
-получая список индексов тех типов кортежа, элементы которых должны попадать в новый кортеж: метафункция remove_if_index_sequence_t.
-2. Далее просто используем этот список индексов для отбора нужных значений из исходного кортежа в кортеж noflts (алгоритм select).
+получая список индексов тех типов кортежа, элементы которых должны попадать в новый кортеж. Все это метафункция remove_if_index_sequence_t.
+2. Используем этот список индексов для отбора нужных значений из исходного кортежа в кортеж noflts (алгоритм select).
 3. А для получения типа с двумя стрингами (tuple < string, string >) используем операцию "MAP" последовательности элементов кортежа на нашу
 лямбду. В нашем случае такая функция называется tuple_map() (и должна содержаться в любой маломальски современной библиотеке для функционального
 программирования на C++), которая, применяя лямбду, автоматически выводит все нужные типы для результирующего кортежа. Это составляет само
@@ -593,8 +594,50 @@ assert(s1.f == 43.0f);
 ```
 AWESOME!
 
-В magic_get версии многолетней давности, которую я изучал, место make_tuple_from_class() занимает множество функций стартущих с
+В magic_get версии многолетней давности, которую я изучал, место make_tuple_from_class() занимает множество функций стартующих с тамошней
 make_flat_tuple_of_references() и представляющих собой какой-то умопомрачительный код бинарного размежевания до единичного значения, а затем
-сбора (мержа) этих значений в кортеж. Зачем это было сделано - для меня осталось загадкой.
+сбора (мержа) этих значений в кортеж. Зачем это было сделано - версия лишь одна - для правильной обработки вложенных подкортежей, ведь сами
+агрегаты могут быть весьма навороченными, а решения проблем рефлексии в magic_get всесторонние, наша же статья - всего лишь демонстрация.
 
-#### 3.2. ........
+#### 3.2. Написать метапрограмму, вычисляющую количество членов-данных(полей) класса-агрегата.
+
+Вы думаете, это очень сложно? А вот и нет. Это, изумительное по красоте решение, позаимствовано из magic_get, но немного переделано для лучшей
+удобоваримости. 
+
+```cpp
+struct ubiq_constructor {
+    size_t ignore;
+    template <class T> constexpr operator T&(); // Undefined, allows initialization of reference fields (T& and const T&)
+};
+
+template <class T, size_t... I>
+auto enable_if_constructible(index_sequence<I...>) -> decltype(T{ ubiq_constructor{I}... });
+
+template <class T, size_t N, class = void_t<>>
+struct enable_if_constructible_t : std::false_type {};
+
+template <class T, size_t N>
+struct enable_if_constructible_t<T, N, void_t<decltype(enable_if_constructible<T>(make_index_sequence<N>()))>> 
+    : std::true_type {};
+
+// Первичный шаблон, объединенный с первым рекурсивным случаем
+template <class T, size_t Begin, size_t Middle, class = void >
+struct detect_data_member_count : detect_data_member_count<T, Middle, Middle + (Middle - Begin + 1) / 2> {};
+
+// Второй рекурсивный случай, исполненный уже в виде специализации 
+template <class T, size_t Begin, size_t Middle >
+struct detect_data_member_count<T, Begin, Middle, enable_if_t<!enable_if_constructible_t<T, Middle>::value>> 
+    : detect_data_member_count<T, Begin, (Begin + Middle) / 2> {};
+
+// Базовый случай
+template <class T, size_t N>
+struct detect_data_member_count<T, N, N> {
+    static constexpr size_t value = N;
+};
+
+// API клиента
+template <class T>
+constexpr size_t data_member_count() {
+    return detect_data_member_count<T, 0, sizeof(T)>::value;
+}
+```
