@@ -5,15 +5,6 @@
 
 using namespace std;
 
-struct our_struct {
-    int i;
-    char c;
-    float f;
-    double function1(int) {return 42.0; }
-    std::array<int, 4> arr;
-    void function2(int);
-};
-
 struct ubiq_constructor {
     size_t ignore;
     template <class T> constexpr operator T&(); // Undefined, allows initialization of reference fields (T& and const T&)
@@ -49,6 +40,16 @@ template <class T>
 constexpr size_t data_member_count() {
     return detect_data_member_count<T, 0, sizeof(T)>::value;
 }
+
+// Проверка
+struct our_struct {
+    int i;
+    char c;
+    float f;
+    double function1(int) {return 42.0; }
+    std::array<int, 4> arr;
+    void function2(int);
+};
 
 static_assert(data_member_count<our_struct>() == 4);
 

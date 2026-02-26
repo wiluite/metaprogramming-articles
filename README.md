@@ -672,3 +672,18 @@ enable_if_constructible_t достаточно прописать только �
 
 Реализация в magic_get построена на шаблонах constexpr-функций, помимо условия разрешения перегрузки принимает 1 дополнительный параметр, а
 также требует forward-объявления одной из двух рекурсивных функций. Наш вариант, построенный на шаблонах классов, чуть-чуть лаконичней и ясней.
+
+Проверка:
+
+```cpp
+struct our_struct {
+    int i;
+    char c;
+    float f;
+    double function1(int) {return 42.0; }
+    std::array<int, 4> arr;
+    void function2(int);
+};
+
+static_assert(data_member_count<our_struct>() == 4);
+```
