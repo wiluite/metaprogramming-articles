@@ -737,6 +737,7 @@ static_assert(data_member_count<our_struct>() == 4);
 Детектирование типов, сохранение их идентификаторов во вспомогательном кортеже с возвратом
 
 ```cpp
+
     struct ubiq_val {
         size_t* ref_;
 
@@ -751,19 +752,15 @@ static_assert(data_member_count<our_struct>() == 4);
         }
     };
 
-    template <size_t... I>
-    constexpr auto foo_tuple(size_t * data, index_sequence<I...>) {
-        return make_tuple(data[I]...);
-    }
-
-    template <class T, size_t N, size_t... I>
+    template <class T, size_t... I>
     constexpr auto type_to_tuple_of_ids() noexcept {
         size_t types[sizeof(T)]{};
-
+        
         T { ubiq_val{types + I}... };
 
-        return foo_tuple(types, make_index_sequence<N>());
+        return make_tuple(types[I]...);
     }
+
 ```
 
 Операция (нижняя строка) вытаскивания типов по привязанным идентификаторам из вспомогательного кортежа и конструирование целевого типа кортежа:
@@ -775,6 +772,7 @@ static_assert(data_member_count<our_struct>() == 4);
         constexpr auto a = /* кортеж готовых идентификаторов */
         return tuple<decltype(id_to_type(size_t_<get<Indices>(a)>{}))...>();
     }
+
 ```
 
 API и проверка:

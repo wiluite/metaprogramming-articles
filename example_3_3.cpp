@@ -89,11 +89,6 @@ namespace detail {
         }
     };
 
-    template <size_t... I>
-    constexpr auto foo_tuple(size_t * data, index_sequence<I...>) {
-        return make_tuple(data[I]...);
-    }
-
     // Детектирование типов, сохранение их идентификаторов во вспомогательном кортеже
     template <class T, size_t... I>
     constexpr auto type_to_tuple_of_ids() noexcept {
@@ -101,7 +96,7 @@ namespace detail {
         
         T { ubiq_val{types + I}... };
 
-        return foo_tuple(types, make_index_sequence<sizeof...(I)>());
+        return make_tuple(types[I]...);
     }
 
     // Проверка 
