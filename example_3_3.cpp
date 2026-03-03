@@ -95,17 +95,17 @@ namespace detail {
     }
 
     // Детектирование типов, сохранение их идентификаторов во вспомогательном кортеже
-    template <class T, size_t N, size_t... I>
+    template <class T, size_t... I>
     constexpr auto type_to_tuple_of_ids() noexcept {
         size_t types[sizeof(T)]{};
         
         T { ubiq_val{types + I}... };
 
-        return foo_tuple(types, make_index_sequence<N>());
+        return foo_tuple(types, make_index_sequence<sizeof...(I)>());
     }
 
     // Проверка 
-    constexpr auto foo_tup = type_to_tuple_of_ids<our_struct, 3, 0, 1, 2>();
+    constexpr auto foo_tup = type_to_tuple_of_ids<our_struct, 0, 1, 2>();
     static_assert(get<0>(foo_tup) == type_to_id(ident<int>{})); // == 8 запомненный идентификатор для int
     static_assert(get<1>(foo_tup) == type_to_id(ident<char>{})); // == 11 запомненный идентификатор для char
     static_assert(get<2>(foo_tup) == type_to_id(ident<float>{})); // == 15 запомненный идентификатор для float
@@ -114,7 +114,7 @@ namespace detail {
     template <class T, size_t ... Indices>
     constexpr auto as_tuple_impl(index_sequence<Indices...>) {
         // Вызов операции детектирования типов и сохранения их идентификаторов
-        constexpr auto a = type_to_tuple_of_ids<T, sizeof...(Indices), Indices...>();
+        constexpr auto a = type_to_tuple_of_ids<T, Indices...>();
         // Вытаскивание типов по привязанным идентификаторам из вспомогательного кортежа и конструирование целевого типа кортежа 
         return tuple<decltype(id_to_type(size_t_<get<Indices>(a)>{}))...>();
     }
