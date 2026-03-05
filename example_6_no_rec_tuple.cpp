@@ -49,6 +49,23 @@ constexpr auto reverse_impl(L lst, index_sequence<I...> is) {
     return List<decltype(id_to_type(integral_constant<size_t, get<I>(ids)>{}))... >{};
 }
 
+#if 0
+// Две функции выше мы не можем заменить одной нижеследующей, потому что 
+// нельзя constexpr auto ids инициализировать чем-то, что как свою часть 
+// имеет не constexpr, а именно types. types - изменяемый в другой функции
+// а здесь инициализация ids тем, что является результатом той функции,
+// а он - всегда contexpr по определению функции.
+template <class...Ts, size_t... I>
+constexpr auto reverse_impl(List<Ts...> lst, index_sequence<I...> is) {
+    size_t types[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
+    for (auto b = types, e = &types[sizeof...(I)] - 1; b < e; )
+        swap(*b++, *e--); 
+
+    constexpr auto ids = make_sequence_tuple(types[I]...);
+    return List<decltype(id_to_type(integral_constant<size_t, get<I>(ids)>{}))... >{};
+}
+#endif
+
 template <class... Ts, template <class...> class L, class = enable_if_t<IsList<L<Ts...>>::value>  >
 constexpr auto reverse(L<Ts...> tp) {
     if constexpr(!sizeof...(Ts))
