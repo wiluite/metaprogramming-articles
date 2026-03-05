@@ -35,7 +35,7 @@ template <class ... Ts>
 struct IsList<List<Ts...>> : true_type {};
 
 template <size_t N>
-struct size_array {                         // libc++ misses constexpr on operator[]
+struct size_array {
     size_t data[N];
     constexpr size_array(initializer_list<size_t> il) {
         size_t index= 0;

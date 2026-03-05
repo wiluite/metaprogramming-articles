@@ -1077,3 +1077,84 @@ constexpr auto make_ids(List<Ts...> lst, index_sequence<I...> is) {
 при помощи все того же макро BOOST_MAGIC_GET_REGISTER_TYPE. Создадим одну альтернативу нашему решению - избавимся вообще от кортежей, то есть от 
 sequence_tuple::tuple:
 
+```cpp
+template <size_t N>
+struct size_array {
+    size_t data[N];
+    constexpr size_array(initializer_list<size_t> il) {
+        size_t index= 0;
+        for (auto e : il)
+            data[index++] = e;
+    }
+};
+
+template <class...Ts, size_t... I>
+constexpr auto make_ids(List<Ts...> lst, index_sequence<I...> is) {
+    size_array<sizeof...(I)> arr = {type_to_id(type_identity<Ts>{})...};
+    for (auto b = arr.data, e = &arr.data[sizeof...(I)] - 1; b < e; )
+        swap(*b++, *e--); 
+    return arr;
+}
+```
+Мы заменили кортеж на класс с constexpr-конструктором и членом-данными - массивом. Мы заполняем массив при конструировании, и возвращаем объект
+этого класса клиенту. Остальной код не претерпел изменений. Мы по-прежнему должны регистрировать свои типы, если намерени работать с ними, что
+совсем несложно. Время компиляции в этом варианте нашего исполнения заметно лучше, чем в случае с кортежем!
+
+И наконец, последнее что мы могли бы сделать - это реализовать еще более универсальный алгоритм, не требующей регистрации никаких типов. Впрочем,
+лично я, вероятно, не смог бы придумать такое решение, однако знаю прекрасное решение от Олега Фахтиева, представленное на C++ Russia 2019. И
+выглядит оно так:
+
+```cpp
+template <class T, class U>
+constexpr bool operator==(type_identity<T>, type_identity<U>) { return false; }
+template <class T>
+constexpr bool operator==(type_identity<T>, type_identity<T>) { return true; }
+
+template <class IS>
+struct get_impl;
+
+template <size_t... Is>
+struct get_impl<std::index_sequence<Is...>> {
+    template <class T>
+    static constexpr T dummy(decltype(Is, (void*)0)..., T*, ...);
+};
+
+template <size_t I, class... Ts>
+constexpr auto get(List<Ts...>) {
+    return type_identity<decltype
+                         (
+                             get_impl<make_index_sequence<I> >::dummy(static_cast<Ts*>(nullptr)...)
+                         )
+    >{};
+}
+
+// Проверка get<>():
+static_assert(get<2>(List<double, int, char, float>{}) == type_identity<char>{});
+
+template <class TypePack, size_t... I>
+constexpr auto reverse_impl(TypePack tp, index_sequence<I...>) {
+    return List<typename decltype(get<sizeof...(I) - I - 1>(tp))::type...>{};
+}
+
+template <class... Ts>
+constexpr auto reverse(List<Ts...> tp) {
+    return reverse_impl(tp, make_index_sequence<sizeof...(Ts)>{});
+}
+
+// Проверка reverse():
+static_assert(is_same_v<decltype(reverse(List<int, char, double, bool, short, void*,
+    int, char, double, bool, short, void*, 
+    int, char, double, bool, short, void*,
+    int, char, double, bool, short, void*, 
+    int, char, double, bool, short, void*
+>{})), 
+decltype(List<void*, short, bool, double, char, int, 
+    void*, short, bool, double, char, int, 
+    void*, short, bool, double, char, int,
+    void*, short, bool, double, char, int,
+    void*, short, bool, double, char, int
+>{})>);
+```
+Сначала пишется шаблонная constexpr-функция get(), отбирающае тип по порядковому номеру. А затем она используется алгоритмом разворота списка.
+Реализация более короткая и более сложная. Это решение можно считать окончательным и универсальным, хотя по времени компиляции оно чуть-чуть
+уступает нашему решению на массивах.
