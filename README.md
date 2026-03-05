@@ -889,7 +889,7 @@ template <class Struct>
 constexpr auto as_tuple() noexcept {
     return detail::as_tuple_impl<Struct>(
        make_index_sequence<detail::data_member_count<Struct>()>{},
-       detail::type_to_tuple_of_ids<Struct, 3, 0, 1, 2>()
+       detail::type_to_tuple_of_ids<Struct, 0, 1, 2>()
     );
 }
 
@@ -938,4 +938,7 @@ int mappedVals[sizeof(array_size(keyVals).c)];
 
 int mappedVals[arraySize(keyVals)];
 ```
-Причина, по которой я написал эту крошечную статью, в том, что Мэтью Уилсон незаслуженно забытый автор прекрасных двух книг по "старому" C++.
+Причина, по которой написана эта крошечная статья, в том, что Мэтью Уилсон незаслуженно забытый автор прекрасных двух книг по "старому" C++.
+
+#### 6. Нерекурсивный разворот списка. История reverse и 2 решения.
+
