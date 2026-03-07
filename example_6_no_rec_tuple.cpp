@@ -36,11 +36,11 @@ constexpr auto make_sequence_tuple(Args&&... args) {
 
 template <class...Ts, size_t... I>
 constexpr auto make_ids(List<Ts...> lst, index_sequence<I...> is) {
-    size_t types[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
-    for (auto b = types, e = &types[sizeof...(I)] - 1; b < e; )
+    size_t type_ids[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
+    for (auto b = type_ids, e = &type_ids[sizeof...(I)] - 1; b < e; )
         swap(*b++, *e--); 
 
-    return make_sequence_tuple(types[I]...);
+    return make_sequence_tuple(type_ids[I]...);
 }
 
 template <class L, size_t... I>
@@ -57,11 +57,11 @@ constexpr auto reverse_impl(L lst, index_sequence<I...> is) {
 // а он - всегда contexpr по определению функции.
 template <class...Ts, size_t... I>
 constexpr auto reverse_impl(List<Ts...> lst, index_sequence<I...> is) {
-    size_t types[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
-    for (auto b = types, e = &types[sizeof...(I)] - 1; b < e; )
+    size_t type_ids[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
+    for (auto b = type_ids, e = &type_ids[sizeof...(I)] - 1; b < e; )
         swap(*b++, *e--); 
 
-    constexpr auto ids = make_sequence_tuple(types[I]...);
+    constexpr auto ids = make_sequence_tuple(type_ids[I]...);
     return List<decltype(id_to_type(integral_constant<size_t, get<I>(ids)>{}))... >{};
 }
 #endif
