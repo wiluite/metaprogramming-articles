@@ -1,4 +1,3 @@
-#include <forward_list>
 #include <iostream>
 #include <tuple>
 #include <utility> // index_sequence
@@ -127,9 +126,8 @@ namespace fusion {
 
     template <template <class...> class Predicate, class T>
     requires IsTuple<T>
-    constexpr auto remove_if(T && tup) {
-        using namespace impl;
-        return select(std::forward<T>(tup), remove_if_index_sequence<Predicate, std::decay_t<decltype(tup)> >{});
+    constexpr auto remove_if(T && t) {
+        return impl::select(std::forward<T>(t), impl::remove_if_index_sequence<Predicate, T>{});
     }
 }
 // Получившийся результат воспроизводит начальный пример: 
