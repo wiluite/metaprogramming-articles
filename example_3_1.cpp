@@ -1,8 +1,9 @@
+// C++14
+#include <cassert>
+#include <iostream>
 #include <tuple>
 #include <type_traits>
-#include <iostream>
 #include <utility>
-#include <cassert>
 
 using tuple_template = std::tuple<int, char, float>;
 
@@ -17,7 +18,6 @@ class offset_based_getter;
 
 template <typename Struct, typename ... Types>
 class offset_based_getter<Struct, std::tuple<Types...>> {
-
     using this_t = offset_based_getter<Struct, std::tuple<Types...>>;
 
     using Tup_t = std::tuple<Types...>;
@@ -35,7 +35,7 @@ class offset_based_getter<Struct, std::tuple<Types...>> {
 
     template<class TupleElementType>
     struct internal_storage {
-        //char storage_[sizeof(TupleElementType)];
+        // char storage_[sizeof(TupleElementType)];
         alignas(alignof(TupleElementType)) char storage_[sizeof(TupleElementType)];
     };
 
@@ -62,9 +62,8 @@ class offset_based_getter<Struct, std::tuple<Types...>> {
         return reinterpret_cast<index_t<idx> *>(reinterpret_cast<char *>(u) + this_t::offset<idx>());
     }
 
-public:
-
-    // Получает значение по индексу из пользовательской структуры. Тип значения index_t<idx> берется из кортежа, последовательность типов 
+ public:
+    // Получает значение по индексу из пользовательской структуры. Тип значения index_t<idx> берется из кортежа, последовательность типов
     // которого совпадает с последовательностью типов в структуре.
     template <std::size_t idx>
     index_t<idx> const & get(Struct const & u) const noexcept {
@@ -99,7 +98,7 @@ int main() {
 
     auto tup = make_tuple_from_class(s1, getter);
     assert(std::get<0>(tup) == 53);
-    assert(std::get<1>(tup) == '.');  
+    assert(std::get<1>(tup) == '.');
     assert(std::get<2>(tup) == 42.1f);
     std::get<2>(tup) = 43.0f;
     assert(std::get<2>(tup) == 43.0);

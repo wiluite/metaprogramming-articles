@@ -6,7 +6,7 @@ using namespace std;
     constexpr size_t type_to_id(type_identity<Type>) noexcept {                  \
         return Index;                                                            \
     }                                                                            \
-    constexpr Type id_to_type(integral_constant<size_t, Index > ) noexcept {     \
+    constexpr Type id_to_type(integral_constant<size_t, Index>) noexcept {       \
         return {};                                                               \
     }                                                                            \
 
@@ -37,8 +37,8 @@ struct IsList<List<Ts...>> : true_type {};
 template <size_t N>
 struct size_array {
     size_t data[N];
-    constexpr size_array(initializer_list<size_t> il) {
-        size_t index= 0;
+    explicit constexpr size_array(initializer_list<size_t> il) noexcept {
+        size_t index = 0;
         for (auto e : il)
             data[index++] = e;
     }
@@ -46,9 +46,9 @@ struct size_array {
 
 template <class...Ts, size_t... I>
 constexpr auto make_ids(List<Ts...> lst, index_sequence<I...> is) {
-    size_array<sizeof...(I)> arr = {type_to_id(type_identity<Ts>{})...};
+    size_array<sizeof...(I)> arr {type_to_id(type_identity<Ts>{})...};
     for (auto b = arr.data, e = &arr.data[sizeof...(I)] - 1; b < e; )
-        swap(*b++, *e--); 
+        swap(*b++, *e--);
     return arr;
 }
 
@@ -73,8 +73,8 @@ static_assert(is_same_v<decltype(reverse(List<int, char, double, bool, short, vo
     int, char, double, bool, short, void*,
     int, char, double, bool, short, void*,
     int, char, double, bool, short, void*, OurType
->{})), List<OurType, void*, short, bool, double, char, int, 
-    void*, short, bool, double, char, int, 
+>{})), List<OurType, void*, short, bool, double, char, int,
+    void*, short, bool, double, char, int,
     void*, short, bool, double, char, int,
     void*, short, bool, double, char, int,
     void*, short, bool, double, char, int

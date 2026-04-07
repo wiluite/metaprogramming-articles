@@ -1,4 +1,4 @@
-#include "sequence_tuple.hpp"
+#include "./sequence_tuple.hpp"
 
 using namespace std;
 
@@ -6,7 +6,7 @@ using namespace std;
     constexpr size_t type_to_id(type_identity<Type>) noexcept {                  \
         return Index;                                                            \
     }                                                                            \
-    constexpr Type id_to_type(integral_constant<size_t, Index > ) noexcept {     \
+    constexpr Type id_to_type(integral_constant<size_t, Index>) noexcept {       \
         return {};                                                               \
     }                                                                            \
 
@@ -38,7 +38,7 @@ template <class...Ts, size_t... I>
 constexpr auto make_ids(List<Ts...> lst, index_sequence<I...> is) {
     size_t type_ids[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
     for (auto b = type_ids, e = &type_ids[sizeof...(I)] - 1; b < e; )
-        swap(*b++, *e--); 
+        swap(*b++, *e--);
 
     return make_sequence_tuple(type_ids[I]...);
 }
@@ -50,8 +50,8 @@ constexpr auto reverse_impl(L lst, index_sequence<I...> is) {
 }
 
 #if 0
-// Две функции выше мы не можем заменить одной нижеследующей, потому что 
-// нельзя constexpr auto ids инициализировать чем-то, что как свою часть 
+// Две функции выше мы не можем заменить одной нижеследующей, потому что
+// нельзя constexpr auto ids инициализировать чем-то, что как свою часть
 // имеет не constexpr, а именно types. types - изменяемый в другой функции
 // а здесь инициализация ids тем, что является результатом той функции,
 // а он - всегда contexpr по определению функции.
@@ -59,7 +59,7 @@ template <class...Ts, size_t... I>
 constexpr auto reverse_impl(List<Ts...> lst, index_sequence<I...> is) {
     size_t type_ids[sizeof...(I)] = {type_to_id(type_identity<Ts>{})...};
     for (auto b = type_ids, e = &type_ids[sizeof...(I)] - 1; b < e; )
-        swap(*b++, *e--); 
+        swap(*b++, *e--);
 
     constexpr auto ids = make_sequence_tuple(type_ids[I]...);
     return List<decltype(id_to_type(integral_constant<size_t, get<I>(ids)>{}))... >{};
@@ -81,8 +81,8 @@ static_assert(is_same_v<decltype(reverse(List<int, char, double, bool, short, vo
     int, char, double, bool, short, void*,
     int, char, double, bool, short, void*,
     int, char, double, bool, short, void*
->{})), List<void*, short, bool, double, char, int, 
-    void*, short, bool, double, char, int, 
+>{})), List<void*, short, bool, double, char, int,
+    void*, short, bool, double, char, int,
     void*, short, bool, double, char, int,
     void*, short, bool, double, char, int,
     void*, short, bool, double, char, int

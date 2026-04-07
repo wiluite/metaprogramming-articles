@@ -1,9 +1,9 @@
-#include <iostream>
-#include <tuple>
-#include <utility> // index_sequence
-#include <type_traits>
-#include <sstream>
 #include <cassert>
+#include <iostream>
+#include <sstream>
+#include <tuple>
+#include <type_traits>
+#include <utility>  // std::index_sequence
 
 using std::size_t;
 using std::conditional_t;
@@ -60,15 +60,15 @@ namespace impl {
     };
 
     // Первичный шаблон и псевдоним алгоритма remove_if_index_sequence_t
-    template <template <class...> class Compare, class TTypeList, size_t idx = 0, class Result = index_sequence<>, 
+    template <template <class...> class Compare, class TTypeList, size_t idx = 0, class Result = index_sequence<>,
         bool = is_empty<TTypeList>::value >
     struct remove_if_index_sequence_t;
     template <template <class...> class Compare, class TTypeList>
     using remove_if_index_sequence = typename remove_if_index_sequence_t<Compare, TTypeList>::type;
 
-    // Рекурсивный случай алгоритма 
+    // Рекурсивный случай алгоритма
     template <template <class...> class Compare, class TTypeList, size_t idx, size_t ... values>
-    struct remove_if_index_sequence_t<Compare, TTypeList, idx, index_sequence<values...>, false> 
+    struct remove_if_index_sequence_t<Compare, TTypeList, idx, index_sequence<values...>, false>
         : remove_if_index_sequence_t <
               Compare,
               pop_front<TTypeList>,
@@ -76,7 +76,7 @@ namespace impl {
               conditional_t<
                   !Compare<front<TTypeList> >::value,
                   index_sequence<values..., idx>,
-                  index_sequence<values...>  
+                  index_sequence<values...>
               >
           >
     { };
@@ -84,7 +84,7 @@ namespace impl {
     template <template <class...> class Compare, class TTypeList, size_t idx, class Result>
     struct remove_if_index_sequence_t<Compare, TTypeList, idx, Result, true> {
         using type = Result;
-    }; 
+    };
 
     // Алгоритм отбора нужных значений из кортежа (для алгоритма fusion::remove_if)
     template <class... Types, size_t ... Indices>
@@ -92,7 +92,7 @@ namespace impl {
         return make_tuple(get<Indices>(tup)...);
     }
 
-    // Реализация алгоритма fusion::transform 
+    // Реализация алгоритма fusion::transform
     namespace details {
         template <typename Fun, typename TupleT, size_t ...N>
         constexpr auto tuple_map(Fun fun, TupleT &&tup, index_sequence<N...>) {
@@ -105,11 +105,11 @@ namespace impl {
     using index_tuple = make_index_sequence<tuple_size<std::decay_t<TupleT>>::value>;
 
     // Фасад реализации алгоритма fusion::transform
-    template <typename Fun, typename TupleT> 
+    template <typename Fun, typename TupleT>
     constexpr auto tuple_map(Fun fun, TupleT && tup) {
         return details::tuple_map(fun, std::forward<TupleT>(tup), index_tuple<TupleT>());
-    };
-}
+    }
+}  // namespace impl
 
 // Обертки, воспроизводящие "интерфейс" fusion
 // (как если бы мы работали с настоящими boost::fusion::remove_if и boost::fusion::transform)
@@ -122,15 +122,15 @@ namespace fusion {
     requires IsTuple<T>
     constexpr auto transform(T && t, F f) {
         return impl::tuple_map(f, std::forward<T>(t) );
-    } 
+    }
 
     template <template <class...> class Predicate, class T>
     requires IsTuple<T>
     constexpr auto remove_if(T && t) {
         return impl::select(std::forward<T>(t), impl::remove_if_index_sequence<Predicate, T>{});
     }
-}
-// Получившийся результат воспроизводит начальный пример: 
+}  // namespace fusion
+// Получившийся результат воспроизводит начальный пример:
 int main() {
     auto to_string = [] (auto t) { std::stringstream ss; ss << t; return ss.str(); };
 
@@ -153,14 +153,14 @@ static_assert(is_same<decltype(noflts_ct), tuple<int, char const*> const >::valu
 #include <string_view>
 using std::string_view;
 constexpr auto another_lambda = [] (auto t) {
-    if constexpr (std::is_same_v<decltype(t), int>) 
+    if constexpr (std::is_same_v<decltype(t), int>)
         return string_view("1");
     else
-        return string_view(t);                 
+        return string_view(t);
 };
 constexpr auto const strs_ct = fusion::transform(noflts_ct, another_lambda);
 static_assert(is_same<decltype(strs_ct), tuple<string_view, string_view> const >::value);
 static_assert(strs_ct == make_tuple(string_view("1"), string_view("abc")));
 static_assert(get<0>(strs_ct) == "1");
 static_assert(get<1>(strs_ct) == "abc");
-// 
+//

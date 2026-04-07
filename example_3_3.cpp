@@ -1,10 +1,11 @@
-#include <utility>
-#include <iostream>
+// C++14
 #include <array>
-#include <tuple>
+#include <iostream>
 #include <string>
+#include <tuple>
+#include <utility>
 
-#if __cplusplus > 201402L // C++17
+#if __cplusplus > 201402L  // C++17
 
 #include <string_view>
 
@@ -12,13 +13,19 @@ template <class T>
 constexpr
 std::string_view
 type_name() {
-    using namespace std;
     std::string_view pp = __PRETTY_FUNCTION__;
     return {pp.data() + 49, pp.find(';', 49) - 49};
 }
 #endif
 
-using namespace std;
+using std::integral_constant;
+using std::nullptr_t;
+using std::make_tuple;
+using std::get;
+using std::index_sequence;
+using std::tuple;
+using std::make_index_sequence;
+using std::enable_if_t;
 
 struct our_struct {
     int i;
@@ -40,7 +47,7 @@ namespace detail {
             constexpr size_t type_to_id(ident<Type>) noexcept {         \
                 return Index;                                           \
             }                                                           \
-            constexpr Type id_to_type( size_t_<Index > ) noexcept {     \
+            constexpr Type id_to_type(size_t_<Index>) noexcept {        \
                 return {};                                              \
             }                                                           \
 
@@ -70,7 +77,7 @@ namespace detail {
         BOOST_MAGIC_GET_REGISTER_TYPE(nullptr_t             , 23)
 
         #undef BOOST_MAGIC_GET_REGISTER_TYPE
-    } /// typeid_conversions
+    }  // namespace typeid_conversions
 
 
     using namespace typeid_conversions;
@@ -93,31 +100,31 @@ namespace detail {
     template <class T, size_t... I>
     constexpr auto type_to_tuple_of_ids() noexcept {
         size_t types[sizeof(T)]{};
-        
+
         T { ubiq_val{types + I}... };
 
         return make_tuple(types[I]...);
     }
 
-    // Проверка 
+    // Проверка
     constexpr auto foo_tup = type_to_tuple_of_ids<our_struct, 0, 1, 2>();
-    static_assert(get<0>(foo_tup) == type_to_id(ident<int>{})); // == 8 запомненный идентификатор для int
-    static_assert(get<1>(foo_tup) == type_to_id(ident<char>{})); // == 11 запомненный идентификатор для char
-    static_assert(get<2>(foo_tup) == type_to_id(ident<float>{})); // == 15 запомненный идентификатор для float
+    static_assert(get<0>(foo_tup) == type_to_id(ident<int>{}));  // == 8 запомненный идентификатор для int
+    static_assert(get<1>(foo_tup) == type_to_id(ident<char>{}));  // == 11 запомненный идентификатор для char
+    static_assert(get<2>(foo_tup) == type_to_id(ident<float>{}));  // == 15 запомненный идентификатор для float
 
-    // Реализация построения целевого кортежа 
+    // Реализация построения целевого кортежа
     template <class T, size_t ... Indices>
     constexpr auto as_tuple_impl(index_sequence<Indices...>) {
         // Вызов операции детектирования типов и сохранения их идентификаторов
         constexpr auto a = type_to_tuple_of_ids<T, Indices...>();
-        // Вытаскивание типов по привязанным идентификаторам из вспомогательного кортежа и конструирование целевого типа кортежа 
+        // Вытаскивание типов по привязанным идентификаторам из вспомогательного кортежа и конструирование целевого типа кортежа
         return tuple<decltype(id_to_type(size_t_<get<Indices>(a)>{}))...>();
     }
 
     // Набор кода из примера 3.2.
     struct ubiq_constructor {
         size_t ignore;
-        template <class T> constexpr operator T&(); // Undefined, allows initialization of reference fields (T& and const T&)
+        template <class T> constexpr operator T&();  // Undefined, allows initialization of reference fields (T& and const T&)
     };
 
     template <class T, size_t... I>
@@ -130,14 +137,14 @@ namespace detail {
     struct enable_if_constructible_t : std::false_type {};
 
     template <class T, size_t N>
-    struct enable_if_constructible_t<T, N, void_t<decltype(enable_if_constructible<T>(make_index_sequence<N>()))>> 
+    struct enable_if_constructible_t<T, N, void_t<decltype(enable_if_constructible<T>(make_index_sequence<N>()))>>
         : std::true_type {};
 
     template <class T, size_t Begin, size_t Middle, class = void >
     struct detect_data_member_count : detect_data_member_count<T, Middle, Middle + (Middle - Begin + 1) / 2> {};
 
     template <class T, size_t Begin, size_t Middle >
-    struct detect_data_member_count<T, Begin, Middle, enable_if_t<!enable_if_constructible_t<T, Middle>::value>> 
+    struct detect_data_member_count<T, Begin, Middle, enable_if_t<!enable_if_constructible_t<T, Middle>::value>>
         : detect_data_member_count<T, Begin, (Begin + Middle) / 2> {};
 
     template <class T, size_t N>
@@ -150,7 +157,7 @@ namespace detail {
         return detect_data_member_count<T, 0, sizeof(T)>::value;
     }
 
-} /// namespace
+}  // namespace detail
 
 
 template <class Struct>
@@ -158,20 +165,19 @@ constexpr auto as_tuple() noexcept {
     return detail::as_tuple_impl<Struct>(make_index_sequence<detail::data_member_count<Struct>()>{});
 }
 
-// Проверка 
+// Проверка
 auto res = as_tuple<our_struct>();
-static_assert(std::is_same<decltype(res), std::tuple<int, char, float>>::value);
+static_assert(std::is_same<decltype(res), tuple<int, char, float>>::value);
 
 constexpr auto res2 = as_tuple<our_struct>();
 // если res2 - constexpr, в static_assert можно сравнивать объекты
 static_assert(res2 == std::tuple<int, char, float>(0, '\0', 0.0f));
 // а тип будет константный
-static_assert(std::is_same<decltype(res2), std::tuple<int, char, float> const>::value);
+static_assert(std::is_same<decltype(res2), tuple<int, char, float> const>::value);
 
 int main() {
     auto res = as_tuple<our_struct>();
-#if __cplusplus > 201402L // C++17
+#if __cplusplus > 201402L  // C++17
     cout << type_name<decltype(res)>() << endl;
 #endif
 }
-

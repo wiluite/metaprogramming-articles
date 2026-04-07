@@ -1,8 +1,9 @@
-#include <tuple>
-#include <iostream>
-#include <type_traits>
-#include <cmath>
 #include <cassert>
+#include <cmath>
+#include <iostream>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 template <unsigned...>
 struct ValueList {};
@@ -26,6 +27,8 @@ using std::tuple;
 using std::tuple_size;
 using std::make_tuple;
 using std::decay;
+using std::move;
+using std::forward;
 
 #if 0
 namespace another {
@@ -48,7 +51,7 @@ namespace map_n_fold {
 
     namespace detail {
         template <class Fun, class T1, class T2, unsigned... Indices>
-        auto tuple_map(Fun fun, T1 tup1, T2 tup2, ValueList<Indices...>) 
+        auto tuple_map(Fun fun, T1 tup1, T2 tup2, ValueList<Indices...>)
             -> decltype(make_tuple(fun(get<Indices>(tup1), get<Indices>(tup2))...)) {
             return make_tuple(fun(get<Indices>(tup1), get<Indices>(tup2))...);
         }
@@ -60,10 +63,10 @@ namespace map_n_fold {
 
         template <typename Fun, typename T, typename TupleT, unsigned N, unsigned ...Ns>
         auto tuple_fold(Fun fun, T acc, TupleT &&tup, ValueList<N, Ns...>) -> T {
-            auto acc1 = fun(std::move(acc), get<N>(tup));
-            return tuple_fold(fun, std::move(acc1), std::forward<TupleT>(tup), ValueList<Ns...>{});
+            auto acc1 = fun(move(acc), get<N>(tup));
+            return tuple_fold(fun, move(acc1), forward<TupleT>(tup), ValueList<Ns...>{});
         }
-    }
+    }  // namespace detail
 
     template <class Fun, class ... Cs1, class ... Cs2, typename enable_if<sizeof...(Cs1) == sizeof...(Cs2)>::type* = nullptr>
     auto tuple_map(Fun fun, tuple<Cs1...> tup1, tuple<Cs2...> tup2)
@@ -124,18 +127,18 @@ namespace map_n_fold {
     using index_tuple = make_index_seq<tuple_size<typename decay<TupleT>::type>::value>;
 
     template<typename Fun, typename T, typename TupleT>
-    auto tuple_fold(Fun fun, T value, TupleT &&tup) -> decltype(detail::tuple_fold(fun, std::move(value), std::forward<TupleT>(tup), index_tuple<TupleT>{})) {
-        return detail::tuple_fold(fun, std::move(value), std::forward<TupleT>(tup), index_tuple<TupleT>{});
+    auto tuple_fold(Fun fun, T value, TupleT &&tup) -> decltype(detail::tuple_fold(fun, move(value), forward<TupleT>(tup), index_tuple<TupleT>{})) {
+        return detail::tuple_fold(fun, move(value), forward<TupleT>(tup), index_tuple<TupleT>{});
     }
 
-} /// map_n_fold
+}  // namespace map_n_fold
 #define TEMPLATE_CALL_OPERATOR
 #if __cplusplus < 201402L && defined(TEMPLATE_CALL_OPERATOR)
 struct difference_squared {
     template <class X, class Y>
     auto operator()(X num1, Y num2) -> decltype(pow(num1 - num2, 2)) {
         return pow(num1 - num2, 2);
-    }      
+    }
 };
 struct sum_of_squared_differences {
     template <class X, class Y>
@@ -146,12 +149,13 @@ struct sum_of_squared_differences {
 #endif
 template <class T, class U>
 auto euclid(T t, U u) -> double {
-    using namespace map_n_fold;
+    using map_n_fold::tuple_fold;
+    using map_n_fold::tuple_map;
 #if __cplusplus >= 201402L
-    auto difference_squared = [](auto num1, auto num2) { // for map
+    auto difference_squared = [](auto num1, auto num2) {  // для map
         return pow(num1 - num2, 2);
     };
-    auto sum_of_squared_differences = [](auto sum, auto num) { // for fold
+    auto sum_of_squared_differences = [](auto sum, auto num) {  // для fold
         sum += num; return sum;
     };
     return sqrt(tuple_fold(sum_of_squared_differences, 0, tuple_map(difference_squared, t, u)));
@@ -183,7 +187,6 @@ namespace another {
 auto as_tuple(another::S4 const& arg) -> decltype(make_tuple(arg.a, arg.b, arg.c, arg.d)) { return make_tuple(arg.a, arg.b, arg.c, arg.d); }
 
 int main() {
-
     using std::tie;
     using std::cout;
 

@@ -1,7 +1,7 @@
 #include <cstdint>
-#include <utility>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 template <class L>
 struct IsEmptyT {
@@ -43,7 +43,7 @@ struct PopFrontT< std::index_sequence<V, Values...> >  {
 template <class L1, class L2, bool = IsEmptyT<L1>::value >
 struct ReverseCTT;
 template <class L1, class L2>
-using ReverseCT = typename ReverseCTT<L1,L2>::Type;
+using ReverseCT = typename ReverseCTT<L1, L2>::Type;
 
 template <class L1, class L2, bool >
 struct ReverseCTT : ReverseCTT<PopFront<L1>, PushFront<L2, Front<L1> > > {};
@@ -95,6 +95,4 @@ using reverse_list_On = typename reverse_list_On_T<L>::type;
 
 static_assert(std::is_same_v<reverse_list_On<List<int, char, double, bool, short, void*> >, List<void*, short, bool, double, char, int> >);
 
-int main() {
-}
-
+int main() {}

@@ -1,13 +1,17 @@
-#include <utility>
+// C++17
+#include <array>
 #include <cassert>
 #include <iostream>
-#include <array>
+#include <utility>
 
-using namespace std;
+using std::index_sequence;
+using std::void_t;
+using std::make_index_sequence;
+using std::enable_if_t;
 
 struct ubiq_constructor {
     size_t ignore;
-    template <class T> constexpr operator T&(); // Undefined, allows initialization of reference fields (T& and const T&)
+    template <class T> constexpr operator T&();  // Undefined, allows initialization of reference fields (T& and const T&)
 };
 
 template <class T, size_t... I>
@@ -17,7 +21,7 @@ template <class T, size_t N, class = void_t<>>
 struct enable_if_constructible_t : std::false_type {};
 
 template <class T, size_t N>
-struct enable_if_constructible_t<T, N, void_t<decltype(enable_if_constructible<T>(make_index_sequence<N>()))>> 
+struct enable_if_constructible_t<T, N, void_t<decltype(enable_if_constructible<T>(make_index_sequence<N>()))>>
     : std::true_type {};
 
 // Первичный шаблон, объединенный с первым рекурсивным случаем
@@ -26,7 +30,7 @@ struct detect_data_member_count : detect_data_member_count<T, Middle, Middle + (
 
 // Второй рекурсивный случай, исполненный уже в виде специализации
 template <class T, size_t Begin, size_t Middle >
-struct detect_data_member_count<T, Begin, Middle, enable_if_t<!enable_if_constructible_t<T, Middle>::value>> 
+struct detect_data_member_count<T, Begin, Middle, enable_if_t<!enable_if_constructible_t<T, Middle>::value>>
     : detect_data_member_count<T, Begin, (Begin + Middle) / 2> {};
 
 // Базовый случай
